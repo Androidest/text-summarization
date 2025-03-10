@@ -25,11 +25,6 @@ if __name__ == '__main__':
 
     print(f"=================== Test =======================")
     assert os.path.exists(train_config.data_path_test)
+    test_loss, score = test(model, train_config, return_all=True, verbose=True)
     print("Test result:")
-    ds_test = CNTextClassDataset(train_config.data_path_test, train_config, use_random=False)
-    test_loss, test_acc, report, confusion = test(model, train_config, ds_test, return_all=True, verbose=True)
-    print(f"test_loss={test_loss:>5.2} test_acc={test_acc:>6.2%}")
-    print("Precision,recall and F1-score:")
-    print(report)
-    print("confusion Matrix:")
-    print(confusion)
+    print(f"test_loss={test_loss:>5.2} score={score}")

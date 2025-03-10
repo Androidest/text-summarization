@@ -1,4 +1,3 @@
-from .TrainConfigBase import TrainConfigBase
 import torch
 
 class ModelBase(torch.nn.Module):

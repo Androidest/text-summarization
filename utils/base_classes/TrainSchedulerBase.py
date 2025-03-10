@@ -11,5 +11,5 @@ class TrainSchedulerBase:
         pass
 
     # on end of a batch
-    def on_step_end(self, epoch : int, step: int, t_loss: float, t_acc : float):
+    def on_step_end(self, epoch : int, step: int, t_loss: float):
         pass
