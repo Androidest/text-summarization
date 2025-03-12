@@ -25,16 +25,3 @@ def set_seed(seed: int):
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.backends.cudnn.deterministic = True
-
-def save_model(model: torch.nn.Module, save_path: str):
-    folder = os.path.dirname(save_path)
-    if not os.path.exists(folder):
-        os.makedirs(folder)
-    torch.save(model.state_dict(), save_path)
-
-def load_model(model: torch.nn.Module, save_path: str):
-    if not os.path.exists(save_path):
-        raise FileNotFoundError(f"Model file not found: {save_path}")
-    model.load_state_dict(torch.load(save_path))
-    return model
-

@@ -1,11 +1,9 @@
-from torch.utils.data import Dataset
 import pandas as pd
 import os
 import re
 from multiprocessing import Pool
-import numpy as np
-import time
 import math
+from torch.utils.data import Dataset
 
 SEP = '<SEP>'
 
@@ -123,14 +121,12 @@ class CarDataCleaner:
 class CarSeq2SeqDataset(Dataset):
     def __init__(self, 
             path: str, 
-            config: object = None, 
             force_clean: bool = False,
             clean_workers: int = 1,
             use_B_dialogue : bool = True, 
             use_B_question : bool = False
         ):
-        self.data = []
-        # self.tokenizer = config.model_tokenizer
+        self._data = []
         filename, ext = os.path.splitext(path)
         temp_filename = f'{filename}.temp.text'
 
@@ -140,28 +136,40 @@ class CarSeq2SeqDataset(Dataset):
         with open(temp_filename, 'r', encoding='utf8') as f:
             for line in f:
                 x, y = line.strip().split(SEP)
-                # x = self.tokenizer(x)
-                self.data.append((x, y))
+                self._data.append({ 'x': x, 'y': y })
 
     def __len__(self) -> int:
-        return len(self.data)
+        return len(self._data)
 
     def __getitem__(self, i) -> iter:
-        return self.data[i]
+        return self._data[i]
 
+    def map(self, func):
+        self._data = list(map(func, self._data))
+        return self
+    
 if __name__ == "__main__":
+    import time
+    from torch.utils.data import DataLoader
+
     os.chdir(os.path.dirname(__file__))
 
     time_start = time.time()
     dataset = CarSeq2SeqDataset(
-        '../data/test.csv', 
+        './data/dev.csv', 
         force_clean=True, 
         clean_workers=5,
         use_B_dialogue=True, 
         use_B_question=False)
     
+    dataset.map(lambda x: {
+        'input_ids': x['x'],
+        'labels': x['y']
+    })
+    
     time_end = time.time()
-    x, y = dataset[0]
     print('time cost', time_end - time_start, 's')
-    print(x, '\n')
-    print(y)
+
+    for data in DataLoader(dataset, batch_size=1, shuffle=True):
+        print(data)
+        break
