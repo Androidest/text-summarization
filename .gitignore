@@ -170,6 +170,6 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
-/local_pretrained/**/
-!/local_pretrained/local pretrained models go here
+/pretrained/**/
+!/pretrained/local pretrained models go here
 /custom_datasets/**/*.temp.*
