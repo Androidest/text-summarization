@@ -120,19 +120,25 @@ class CarDataCleaner:
 
 class CarSeq2SeqDataset(Dataset):
     def __init__(self, 
-            path: str, 
+            train: bool = True,
             force_clean: bool = False,
             clean_workers: int = 1,
             use_B_dialogue : bool = True, 
-            use_B_question : bool = False
+            use_B_question : bool = False,
+            data_path : str = None
         ):
-        self._data = []
+        curdir = os.path.dirname(__file__)
+        path = f'{curdir}/data/train.csv' if train else f'{curdir}/data/dev.csv'
+        if data_path:
+            path = data_path
+
         filename, ext = os.path.splitext(path)
         temp_filename = f'{filename}.temp.text'
 
         if force_clean or not os.path.exists(temp_filename):
             CarDataCleaner.clean_dataset(path, temp_filename, clean_workers, use_B_dialogue, use_B_question)
         
+        self._data = []
         with open(temp_filename, 'r', encoding='utf8') as f:
             for line in f:
                 x, y = line.strip().split(SEP)
@@ -152,11 +158,9 @@ if __name__ == "__main__":
     import time
     from torch.utils.data import DataLoader
 
-    os.chdir(os.path.dirname(__file__))
-
     time_start = time.time()
     dataset = CarSeq2SeqDataset(
-        './data/dev.csv', 
+        train=False, 
         force_clean=True, 
         clean_workers=5,
         use_B_dialogue=True, 
@@ -170,6 +174,7 @@ if __name__ == "__main__":
     time_end = time.time()
     print('time cost', time_end - time_start, 's')
 
+    print(len(dataset))
     for data in DataLoader(dataset, batch_size=1, shuffle=True):
         print(data)
         break
