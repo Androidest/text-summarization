@@ -11,13 +11,14 @@ class T5PointerGeneratorTrainingArgs(Seq2SeqTrainingArguments):
         curdir = os.path.dirname(__file__)
 
         # train
-        self.weight_decay = 0.01
-        self.learning_rate = 5e-5
-        self.per_device_train_batch_size : int = 8
-        self.num_train_epochs : int = 7
         data_size = 81718
+        self.weight_decay = 0.01
+        self.learning_rate = 8e-5
+        self.per_device_train_batch_size : int = 8
+        self.num_train_epochs : int = 5
         epoch_steps = data_size // self.per_device_train_batch_size
-        self.warmup_steps = epoch_steps * 1
+        self.warmup_steps = 1000
+        self.lr_scheduler_type="cosine"
         # extra
         self.random_seed = 1
         self.pretrained_path = 'pretrained/t5-small-chinese-cluecorpussmall'
@@ -38,11 +39,10 @@ class T5PointerGeneratorTrainingArgs(Seq2SeqTrainingArguments):
         self.load_best_model_at_end = True
         # eval
         self.eval_strategy = "steps"
-        self.eval_steps : int = epoch_steps // 10
+        self.eval_steps : int = 1000
         self.batch_eval_metrics = ['loss'] #['loss', 'rouge1', 'rouge2', 'rougeL']
-        self.per_device_eval_batch_size : int = 32
+        self.per_device_eval_batch_size : int = 45
         
-
 def create_trainer():
     args = T5PointerGeneratorTrainingArgs()
     set_seed(args.random_seed)
@@ -78,5 +78,5 @@ def create_trainer():
         args=args,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
-        data_collator=data_collator
+        data_collator=data_collator,
     )

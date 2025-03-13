@@ -16,7 +16,7 @@ class DataPreprocessorForT5PointerGenerator:
             data['x'], 
             max_length=self.max_seq_len,
             return_tensors=False,
-            add_special_tokens=True,
+            add_special_tokens=False,
         )
         
         labels = self.tokenizer.encode_with_extended_vocab(
@@ -75,6 +75,7 @@ class T5PointerGeneratorModel(T5ForConditionalGeneration):
     def __init__(self, config: T5Config):
         super().__init__(config)
         self.p_gen_linear = torch.nn.Linear(config.d_model, 1)
+        self.sigmoid = torch.nn.Sigmoid()
         self.vocab_size = config.vocab_size
 
     def forward(
@@ -117,7 +118,7 @@ class T5PointerGeneratorModel(T5ForConditionalGeneration):
 
         # Compute p_gen
         last_hidden_state = outputs.decoder_hidden_states[-1]  # (batch_size, decoder_seq_len, d_model)
-        p_gen = self.p_gen_linear(last_hidden_state)  # (batch_size, decoder_seq_len, 1)
+        p_gen = self.sigmoid(self.p_gen_linear(last_hidden_state))  # (batch_size, decoder_seq_len, 1)
         assert p_gen.shape == (batch_size, decoder_seq_len, 1)
 
         # Compute extended vocab distribution

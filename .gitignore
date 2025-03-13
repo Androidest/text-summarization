@@ -173,3 +173,5 @@ cython_debug/
 /pretrained/**/
 !/pretrained/local pretrained models go here
 /custom_datasets/**/*.temp.*
+/models/**/[lL]og*
+/models/**/[Cc]heckpoint*
