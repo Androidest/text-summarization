@@ -18,10 +18,3 @@ if __name__ == '__main__':
 
     print(f"=================== Start training =======================")
     trainer.train()
-
-    # print(f"=================== Test best model ======================")
-    # model = load_model(model, train_config.get_model_save_path())
-    # score = test(model, train_config, return_all=True, verbose=True)
-    # save_model(model, train_config.get_model_save_path(score))
-    # print("Test result:")
-    # print(f"test_loss={test_lossscore={score}")
