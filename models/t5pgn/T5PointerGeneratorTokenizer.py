@@ -38,11 +38,11 @@ class T5PointerGeneratorTokenizer:
     
     def decode_extended_ids(self, extended_ids: Union[List[int], torch.Tensor], local_vocab: dict) -> str:
         tokens = self.convert_extended_ids_to_tokens(extended_ids, local_vocab)
-        return self.tokenizer.convert_tokens_to_string(tokens)
+        return ''.join(tokens)
     
     def batch_decode_extended_ids(self, extended_ids: torch.Tensor, local_vocabs: List[dict]) -> List[str]:
         batch_tokens = self.batch_convert_extended_ids_to_tokens(extended_ids, local_vocabs)
-        return [self.tokenizer.convert_tokens_to_string(tokens) for tokens in batch_tokens]
+        return [''.join(tokens) for tokens in batch_tokens]
 
     def encode_extended_ids(
             self,
@@ -74,7 +74,7 @@ class T5PointerGeneratorTokenizer:
                 token_ids[i] = local_vocab[word]  # Replace with extended ID
 
         if return_tensors:
-            token_ids = torch.tensor(token_ids, dtype=torch.int32)
+            token_ids = torch.tensor(token_ids)
 
         return token_ids, local_vocab
 
@@ -103,6 +103,6 @@ class T5PointerGeneratorTokenizer:
                 token_ids[i] = local_vocab[word]  # Replace with extended ID
 
         if return_tensors:
-            token_ids = torch.tensor(token_ids, dtype=torch.int32)
+            token_ids = torch.tensor(token_ids)
 
         return token_ids

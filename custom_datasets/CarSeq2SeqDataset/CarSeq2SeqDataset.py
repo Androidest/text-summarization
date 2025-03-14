@@ -61,6 +61,15 @@ class CarDataCleaner:
         with open(dist, 'w', encoding='utf8') as f:
             f.writelines(cleaned_data)
 
+    @staticmethod
+    def clean_dialogue(dialog : str, use_B_dialogue : bool) -> str:
+        dialog = CarDataCleaner.dialog_basic_cleaning(dialog)
+        if not use_B_dialogue:
+            dialog = CarDataCleaner.remove_B_dialogue(dialog)
+        dialog = CarDataCleaner.punctuation_cleaning(dialog)
+        dialog = CarDataCleaner.replaceAB(dialog)
+        return dialog
+    
     @ staticmethod
     def clean_func(df : pd.DataFrame, use_B_dialogue : bool, use_B_question : bool):
         data = []
@@ -71,7 +80,7 @@ class CarDataCleaner:
                 continue
 
             # dialog
-            dialog = CarDataCleaner.dialog_cleaning(dialog)
+            dialog = CarDataCleaner.dialog_basic_cleaning(dialog)
             if not use_B_dialogue:
                 dialog = CarDataCleaner.remove_B_dialogue(dialog)
             if use_B_question:
@@ -105,7 +114,7 @@ class CarDataCleaner:
         return text
 
     @ staticmethod
-    def dialog_cleaning(text : str):
+    def dialog_basic_cleaning(text : str):
         text = re.sub(r'\[语音\]', '', text)
         text = re.sub(r'\[图片\]', '', text)
         text = re.sub(r'技师说', 'A', text)

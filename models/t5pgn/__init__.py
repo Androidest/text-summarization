@@ -2,6 +2,7 @@ from .Arguments import Arguments, RougeMetric
 from .T5PointerGeneratorTokenizer import *
 from .T5PointerGeneratorTokenizer import *
 from .T5PointerGeneratorModel import *
+from .T5PointerGeneratorSummizer import *
 from custom_datasets import CarSeq2SeqDataset
 from utils import *
 from transformers import Seq2SeqTrainer, T5Config
