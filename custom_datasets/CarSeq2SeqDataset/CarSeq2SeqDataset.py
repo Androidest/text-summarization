@@ -139,7 +139,7 @@ class CarSeq2SeqDataset(Dataset):
             clean_workers: int = 1,
             use_B_dialogue : bool = True, 
             use_B_question : bool = False,
-            data_path : str = None
+            data_path : str = None,
         ):
         curdir = os.path.dirname(__file__)
         path = f'{curdir}/data/train.csv' if train else f'{curdir}/data/dev.csv'
@@ -187,6 +187,10 @@ class CarSeq2SeqDataset(Dataset):
     @ staticmethod
     def filter_func(callback, data : list):
         return list(map(callback, data))
+    
+    def take(self, n : int):
+        self._data = self._data[:n]
+        return self
     
 if __name__ == "__main__":
     import time
