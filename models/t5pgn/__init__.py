@@ -27,22 +27,25 @@ def create_trainer():
         train=True,
         clean_workers=args.data_clean_workers,
         use_B_dialogue=args.data_use_B_dialogue, 
-        use_B_question=args.data_use_B_question)
-    train_dataset.take(100)
+        use_B_question=args.data_use_B_question,
+        # take=100
+    )
     train_dataset.map(data_preprocessor, workers=args.data_preprocess_workers)
 
     eval_dataset = CarSeq2SeqDataset(
         train=False,
         clean_workers=args.data_clean_workers,
         use_B_dialogue=args.data_use_B_dialogue, 
-        use_B_question=args.data_use_B_question)
-    eval_dataset.take(10)
+        use_B_question=args.data_use_B_question,
+        take=2000
+    )
     eval_dataset.map(data_preprocessor, workers=args.data_preprocess_workers)
 
     # Create Trainer instance
     return Seq2SeqTrainer(
         model=model,
         args=args,
+        processing_class=tokenizer.tokenizer,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         data_collator=data_collator,

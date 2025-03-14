@@ -149,6 +149,7 @@ class CarSeq2SeqDataset(Dataset):
             use_B_dialogue : bool = True, 
             use_B_question : bool = False,
             data_path : str = None,
+            take : int = -1
         ):
         curdir = os.path.dirname(__file__)
         path = f'{curdir}/data/train.csv' if train else f'{curdir}/data/dev.csv'
@@ -163,7 +164,9 @@ class CarSeq2SeqDataset(Dataset):
         
         self._data = []
         with open(temp_filename, 'r', encoding='utf8') as f:
-            for line in f:
+            for i, line in enumerate(f):
+                if take > 0 and i >= take:
+                    break
                 x, y = line.strip().split(SEP)
                 self._data.append({ 'x': x, 'y': y })
 

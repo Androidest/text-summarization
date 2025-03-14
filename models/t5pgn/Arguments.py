@@ -36,7 +36,7 @@ class Arguments(Seq2SeqTrainingArguments):
         self.eval_strategy = "steps"
         self.eval_steps : int = 2000
         self.batch_eval_metrics = ['loss'] 
-        self.per_device_eval_batch_size : int = 32
+        self.per_device_eval_batch_size : int = 24
 
         # logging
         self.logging_dir = f"{curdir}/logs/{timestamp}"
