@@ -1,6 +1,5 @@
 from utils import os
 from transformers import Seq2SeqTrainingArguments, GenerationConfig
-from transformers.trainer_utils import EvalPrediction
 import datetime
 from .T5PointerGeneratorTokenizer import T5PointerGeneratorTokenizer
 from rouge import Rouge
@@ -56,7 +55,13 @@ class RougeMetric:
         self.rouge = Rouge()
         self.tokenizer = tokenizer
 
-    def __call__(self, eval_pred : EvalPrediction, compute_result : bool):
+    def __call__(
+        self, 
+        eval_pred, 
+        compute_result : bool = False, 
+        full_result : bool = False
+    ) -> dict:
+        
         predictions, labels = eval_pred
 
         local_vocabs = []
@@ -83,5 +88,7 @@ class RougeMetric:
             print('预测结果2：', ''.join(decoded_preds[1]))
             print('')
 
-        # convert to percentage
+        if full_result:
+            return result
+        
         return {f'{key}.f': value['f'] for key, value in result.items()}

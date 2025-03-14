@@ -16,10 +16,10 @@ class T5PointerGeneratorTokenizer:
         tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path, *args, **kwargs)
         return cls(tokenizer)
     
-    def batch_convert_extended_ids_to_tokens(self, token_ids: torch.Tensor, local_vocabs: List[dict]) -> str:
+    def batch_convert_extended_ids_to_tokens(self, extended_ids: torch.Tensor, local_vocabs: List[dict]) -> str:
         batch_tokens = []
-        for i in range(token_ids.shape[0]):
-            batch_tokens.append(self.convert_extended_ids_to_tokens(token_ids[i], local_vocabs[i]))
+        for i in range(extended_ids.shape[0]):
+            batch_tokens.append(self.convert_extended_ids_to_tokens(extended_ids[i], local_vocabs[i]))
         return batch_tokens
 
     def convert_extended_ids_to_tokens(self, extended_ids: Union[List[int], torch.Tensor], local_vocab: dict) -> str:
@@ -39,6 +39,10 @@ class T5PointerGeneratorTokenizer:
     def decode_extended_ids(self, extended_ids: Union[List[int], torch.Tensor], local_vocab: dict) -> str:
         tokens = self.convert_extended_ids_to_tokens(extended_ids, local_vocab)
         return self.tokenizer.convert_tokens_to_string(tokens)
+    
+    def batch_decode_extended_ids(self, extended_ids: torch.Tensor, local_vocabs: List[dict]) -> List[str]:
+        batch_tokens = self.batch_convert_extended_ids_to_tokens(extended_ids, local_vocabs)
+        return [self.tokenizer.convert_tokens_to_string(tokens) for tokens in batch_tokens]
 
     def encode_extended_ids(
             self,
