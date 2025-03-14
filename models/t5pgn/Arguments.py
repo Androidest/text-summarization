@@ -1,6 +1,9 @@
 from utils import os
 from transformers import Seq2SeqTrainingArguments, GenerationConfig
+from transformers.trainer_utils import EvalPrediction
 import datetime
+from .T5PointerGeneratorTokenizer import T5PointerGeneratorTokenizer
+from rouge import Rouge
 
 class Arguments(Seq2SeqTrainingArguments):
     def __init__(self, *args, **kwargs):
@@ -32,8 +35,8 @@ class Arguments(Seq2SeqTrainingArguments):
 
         # eval
         self.eval_strategy = "steps"
-        self.eval_steps : int = 10
-        self.batch_eval_metrics = ['loss'] #['loss', 'rouge1', 'rouge2', 'rougeL']
+        self.eval_steps : int = 2000
+        self.batch_eval_metrics = ['loss'] 
         self.per_device_eval_batch_size : int = 32
 
         # logging
@@ -43,13 +46,42 @@ class Arguments(Seq2SeqTrainingArguments):
 
         # save
         self.output_dir = f"{curdir}/checkpoints/{timestamp}"
-        # self.save_strategy = "best"
-        # self.metric_for_best_model = "eval_loss"
+        self.save_strategy = "best"
+        self.metric_for_best_model = "eval_rouge-l.f" #"eval_loss"
         self.save_total_limit : int = 1
-        # self.load_best_model_at_end = True
+        self.load_best_model_at_end = True
 
-    @staticmethod
-    def compute_metrics(eval_pred, compute_result : bool):
+class RougeMetric:
+    def __init__(self, tokenizer : T5PointerGeneratorTokenizer):
+        self.rouge = Rouge()
+        self.tokenizer = tokenizer
+
+    def __call__(self, eval_pred : EvalPrediction, compute_result : bool):
+        predictions, labels = eval_pred
+
+        local_vocabs = []
+        for (pred, label) in zip(predictions, labels):
+            local_vocab = {}
+            for token_id in pred + label:
+                token_id = token_id.item()
+                if token_id >= self.tokenizer.vocab_size:
+                    num = token_id - self.tokenizer.vocab_size
+                    local_vocab[f'[UNK{num}]'] = token_id
+            local_vocabs.append(local_vocab)
+
+        # ids to tokens
+        decoded_preds = self.tokenizer.batch_convert_extended_ids_to_tokens(predictions, local_vocabs=local_vocabs)
+        decoded_labels = self.tokenizer.batch_convert_extended_ids_to_tokens(labels, local_vocabs=local_vocabs)
+
+        # compute rouge
+        hypothesis = [' '.join(pred) for pred in decoded_preds]
+        reference = [' '.join(label) for label in decoded_labels]
+        result = self.rouge.get_scores(hyps=hypothesis, refs=reference, avg=True)
+
         if compute_result:
-            print(eval_pred)
-        return {'loss': 10.0 }
+            print('预测结果1：', ''.join(decoded_preds[0]))
+            print('预测结果2：', ''.join(decoded_preds[1]))
+            print('')
+
+        # convert to percentage
+        return {f'{key}.f': value['f'] for key, value in result.items()}

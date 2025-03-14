@@ -1,4 +1,4 @@
-from .Arguments import Arguments
+from .Arguments import Arguments, RougeMetric
 from .T5PointerGeneratorTokenizer import *
 from .T5PointerGeneratorTokenizer import *
 from .T5PointerGeneratorModel import *
@@ -14,6 +14,7 @@ def create_trainer():
     config = T5Config.from_pretrained(args.pretrained_path)
     model = T5PointerGeneratorModel.from_pretrained(args.pretrained_path)
     tokenizer = T5PointerGeneratorTokenizer.from_pretrained(args.pretrained_path)
+    metrics = RougeMetric(tokenizer)
 
     # DataPreprocessor: Process tokenization, generate input_ids, etc
     data_preprocessor = DataPreprocessorForT5PointerGenerator(tokenizer, args.generation_config) 
@@ -44,5 +45,5 @@ def create_trainer():
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         data_collator=data_collator,
-        compute_metrics=Arguments.compute_metrics,
+        compute_metrics=metrics,
     )

@@ -75,13 +75,13 @@ class T5PointerGeneratorModel(T5ForConditionalGeneration):
         super().__init__(config)
         self.p_gen_linear = torch.nn.Linear(config.d_model, 1)
         self.sigmoid = torch.nn.Sigmoid()
-        self.vocab_size = config.vocab_size
         
-        tokenizer = AutoTokenizer.from_pretrained(config._name_or_path)
-        self.unk_token_id = tokenizer.vocab[tokenizer.special_tokens_map['unk_token']]
-        self.bos_token_id = tokenizer.vocab[tokenizer.special_tokens_map['cls_token']]
-        self.eos_token_id = tokenizer.vocab[tokenizer.special_tokens_map['sep_token']]
-        self.pad_token_id = tokenizer.vocab[tokenizer.special_tokens_map['pad_token']]
+        tokenizer = T5PointerGeneratorTokenizer.from_pretrained(config._name_or_path)
+        self.vocab_size = tokenizer.vocab_size
+        self.unk_token_id = tokenizer.unk_token_id
+        self.bos_token_id = tokenizer.bos_token_id
+        self.eos_token_id = tokenizer.eos_token_id
+        self.pad_token_id = tokenizer.pad_token_id
 
     def forward(
         self, 
@@ -174,18 +174,18 @@ class T5PointerGeneratorModel(T5ForConditionalGeneration):
         input_ids: Optional[torch.LongTensor] = None, # with extended vocab ids (no unk id) 
         attention_mask: Optional[torch.FloatTensor] = None, # padding mask
         extended_vocab_size: Optional[int] = None, # extended vocab build from OOV words for each sequence
-        labels: Optional[torch.LongTensor] = None,
-        synced_gpus: Optional[bool] = False,
+        **kwargs,
     ) -> Union[GenerateOutput, torch.LongTensor]:
         
         self.eval()
         batch_size = input_ids.shape[0]
         gen_len = self.generation_config.max_new_tokens
-        gen_len = self.generation_config.max_new_tokens
-        batch_size = input_ids.shape[0]
         decoder_input_ids = torch.full((batch_size, 1), fill_value=self.bos_token_id, dtype=input_ids.dtype, device=input_ids.device)
         encoder_outputs = None
         finish_flags = torch.zeros(batch_size, dtype=torch.bool, device=input_ids.device)
+
+        if attention_mask is None:
+            attention_mask = (input_ids!= self.pad_token_id).float()
 
         for i in range(1, gen_len):
             decoder_attention_mask = (decoder_input_ids != self.pad_token_id).float()
@@ -204,11 +204,12 @@ class T5PointerGeneratorModel(T5ForConditionalGeneration):
 
             # Compute next token id
             scores = outputs.expanded_vocab_dist[:, -1:, :] # last token scores(extended vocab distribution)
-            next_token_ids = torch.argmax(scores, dim=-1) # greedy search
+            next_token_ids = scores.argmax(dim=-1) # greedy search
             decoder_input_ids = torch.cat([decoder_input_ids, next_token_ids], dim=-1)
 
             # stops generating when all sequences have eos token
-            finish_flags |= (next_token_ids.squeeze(-1) == self.eos_token_id)
+            next_token_ids.squeeze_(-1)
+            finish_flags |= (next_token_ids == self.eos_token_id) | (next_token_ids == self.pad_token_id)
             if finish_flags.all():
                 break
 

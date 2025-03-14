@@ -1,28 +1,43 @@
 import torch
 from transformers import AutoTokenizer
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Union
 
 class T5PointerGeneratorTokenizer:
-    def __init__(self, tokenizer):
+    def __init__(self, tokenizer : AutoTokenizer):
         self.tokenizer = tokenizer
         self.vocab_size = tokenizer.vocab_size
         self.unk_token_id = tokenizer.unk_token_id
+        self.bos_token_id = tokenizer.cls_token_id # Start
+        self.eos_token_id = tokenizer.sep_token_id # End
+        self.pad_token_id = tokenizer.pad_token_id
 
     @classmethod
     def from_pretrained(cls, pretrained_model_name_or_path, *args, **kwargs):
         tokenizer = AutoTokenizer.from_pretrained(pretrained_model_name_or_path, *args, **kwargs)
         return cls(tokenizer)
+    
+    def batch_convert_extended_ids_to_tokens(self, token_ids: torch.Tensor, local_vocabs: List[dict]) -> str:
+        batch_tokens = []
+        for i in range(token_ids.shape[0]):
+            batch_tokens.append(self.convert_extended_ids_to_tokens(token_ids[i], local_vocabs[i]))
+        return batch_tokens
 
-    def decode_extended_ids(self, extended_ids: List[int], local_vocab: dict) -> str:
+    def convert_extended_ids_to_tokens(self, extended_ids: Union[List[int], torch.Tensor], local_vocab: dict) -> str:
         tokens = []
         for extended_id in extended_ids:
+            if extended_id == self.eos_token_id or extended_id == self.pad_token_id:
+                break
             if extended_id < self.vocab_size:  # If it's a regular token ID
-                tokens.append(self.tokenizer.convert_ids_to_tokens([extended_id])[0])
+                tokens.append(self.tokenizer._convert_id_to_token(extended_id))
             else:  # If it's an extended token ID
                 for token, token_id in local_vocab.items():
                     if token_id == extended_id:
                         tokens.append(token)
                         break
+        return tokens
+    
+    def decode_extended_ids(self, extended_ids: Union[List[int], torch.Tensor], local_vocab: dict) -> str:
+        tokens = self.convert_extended_ids_to_tokens(extended_ids, local_vocab)
         return self.tokenizer.convert_tokens_to_string(tokens)
 
     def encode_extended_ids(
