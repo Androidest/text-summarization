@@ -52,7 +52,7 @@ class T5PG4CarSummizer:
         # generate summary
         input_ids = input_ids.unsqueeze(0).to(self.device) # to batch (1, seq_len) 
         output_ids = self.model.generate(
-            input_ids, 
+            inputs = input_ids, 
             extended_vocab_size=len(local_vocab), 
             copy_weight = copy_weight # weight of copy, for inference only: final_p_gen = p_gen * copy_weight
         )
@@ -158,7 +158,7 @@ class T5PG4CarSummizer:
                 labels = batch['labels'].to(self.device)
 
                 predictions = self.model.generate(
-                    input_ids=input_ids,
+                    inputs=input_ids,
                     attention_mask=attention_mask,
                     extended_vocab_size=extended_vocab_size)
                 

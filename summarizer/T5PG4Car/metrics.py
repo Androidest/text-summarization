@@ -34,9 +34,18 @@ class T5PG4CarRougeMetric:
                 local_vocabs.append(local_vocab)
 
         # ids to tokens
-        decoded_preds = self.tokenizer.batch_decode_extended_ids(predictions, local_vocabs=local_vocabs, join_space=" ")
-        decoded_labels = self.tokenizer.batch_decode_extended_ids(labels, local_vocabs=local_vocabs, join_space=" ")
-
+        decoded_preds = self.tokenizer.batch_decode_extended_ids(
+            predictions, 
+            local_vocabs=local_vocabs, 
+            join_space=" ", 
+            remove_special_tokens=False)
+        
+        decoded_labels = self.tokenizer.batch_decode_extended_ids(
+            labels, 
+            local_vocabs=local_vocabs, 
+            join_space=" ",
+            remove_special_tokens=False)
+        
         # compute rouge
         avg = not self.full_result
         result = self.rouge.get_scores(hyps=decoded_preds, refs=decoded_labels, avg=avg)

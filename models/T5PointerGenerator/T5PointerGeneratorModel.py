@@ -22,15 +22,21 @@ class T5PointerGeneratorModel(T5ForConditionalGeneration):
         self, 
         input_ids: Optional[torch.LongTensor] = None, # with extended vocab ids (no unk id) 
         attention_mask: Optional[torch.FloatTensor] = None, # padding mask
-        decoder_input_ids: Optional[torch.LongTensor] = None,  # with extended vocab ids (no unk id) 
+        decoder_input_ids: Optional[torch.LongTensor] = None, # with extended vocab ids (no unk id) 
         decoder_attention_mask: Optional[torch.BoolTensor] = None, # padding mask
         encoder_outputs: Optional[Tuple[Tuple[torch.Tensor]]] = None,
-        extended_vocab_size: Optional[int] = None, # extended vocab build from OOV words for each sequence
         labels: Optional[torch.LongTensor] = None,
+        extended_vocab_size: Optional[int] = None, # extended vocab build from OOV words for each sequence
         copy_weight : float = 1, # weight of copy, for inference only: final_p_gen = p_gen * copy_weight
+        output_attentions : Optional[bool] = None,  # Require cross-attention weights for p_gen computation
+        output_hidden_states : Optional[bool] = None,
+        return_dict : Optional[bool] = None,
         **kwargs
     ) -> Union[Tuple[torch.FloatTensor], T5PointerGeneratorOutputs]:
 
+        if input_ids is None:
+            input_ids = self._input_ids
+            
         encoder_seq_len = input_ids.shape[-1]
         batch_size, decoder_seq_len = decoder_input_ids.shape
 
@@ -48,7 +54,8 @@ class T5PointerGeneratorModel(T5ForConditionalGeneration):
             labels=None,  # Don't compute loss in the parent forward pass
             output_attentions=True,  # Require cross-attention weights for p_gen computation
             output_hidden_states=True,
-            return_dict=True
+            return_dict=True,
+            **kwargs
         )
 
         # Compute attention distribution
@@ -98,16 +105,36 @@ class T5PointerGeneratorModel(T5ForConditionalGeneration):
         # return dict
         return T5PointerGeneratorOutputs(
             loss=loss, # loss is required by transformers.Trainer/Seq2SeqTrainer
-            logits=logits,
-            expanded_vocab_dist=expanded_vocab_dist,
+            logits=expanded_vocab_dist,
             decoder_hidden_states=outputs.decoder_hidden_states,
             decoder_attentions=outputs.decoder_attentions,
             cross_attentions=outputs.cross_attentions,
             encoder_outputs=encoder_outputs
         )
-
+    
     @torch.no_grad()
     def generate(
+        self, 
+        inputs: Optional[torch.LongTensor] = None, # with extended vocab ids (no unk id)
+        **kwargs,
+    ) -> Union[GenerateOutput, torch.LongTensor]:
+        """
+            Why override this function?:
+                Because self.encoder(input_ids) would be called inside the generate() function
+                the input_ids would be consumed by the encoder. 
+                then the input_ids would be None when calling the self.forward() function at the next step.
+                we need to cache the input_ids for the forward() function before calling the super().generate()
+        """
+        # cache input_ids for the forward() function
+        self._input_ids = inputs
+        # Replace extended vocab ids with unk id, 
+        # because the extended vocab ids are illegal inputs for the encoder
+        inputs = inputs.masked_fill(inputs >= self.vocab_size, self.unk_token_id)
+        outputs = super().generate(inputs, **kwargs)
+        return outputs
+
+    @torch.no_grad()
+    def generate__(
         self, 
         input_ids: Optional[torch.LongTensor] = None, # with extended vocab ids (no unk id) 
         attention_mask: Optional[torch.FloatTensor] = None, # padding mask
@@ -144,7 +171,7 @@ class T5PointerGeneratorModel(T5ForConditionalGeneration):
             encoder_outputs = outputs.encoder_outputs
 
             # Compute next token id
-            scores = outputs.expanded_vocab_dist[:, -1:, :] # last token scores(extended vocab distribution)
+            scores = outputs.logits[:, -1:, :] # last token scores(extended vocab distribution)
             next_token_ids = scores.argmax(dim=-1) # greedy search
             decoder_input_ids = torch.cat([decoder_input_ids, next_token_ids], dim=-1)
 

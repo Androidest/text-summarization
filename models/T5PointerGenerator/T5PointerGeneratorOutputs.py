@@ -7,12 +7,9 @@ class T5PointerGeneratorOutputs(ModelOutput):
     """
     Base class for outputs of T5PointerGeneratorModel."
     Args:
-        expanded_vocab_dist (`torch.FloatTensor` of shape `(batch_size, decoder_seq_len, extended_vocab_size)`):
-            The distribution of the extended vocabulary. The final distribution computed from the Pointer Generator network.
         loss (`torch.FloatTensor` of shape `(1,)`, *optional*, returned when `labels` is provided):
             The Pointer Generator loss. Loss is required for Seq2SeqTrainer.
     """
-    expanded_vocab_dist: Optional[torch.FloatTensor] = None
     loss: Optional[torch.FloatTensor] = None
     logits: torch.FloatTensor = None
     past_key_values: Optional[Tuple[Tuple[torch.FloatTensor]]] = None
