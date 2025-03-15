@@ -17,15 +17,15 @@ class T5PG4CarArguments(Seq2SeqTrainingArguments):
         self.data_use_B_question=True
         self.data_clean_workers=5
         self.data_preprocess_workers=3
-        self.data_train_take = 100
-        self.data_eval_take = 10
+        self.data_train_take = -1
+        self.data_eval_take = -1
 
         # train
         data_size = 81718
         self.weight_decay = 0.01
-        self.learning_rate = 8e-4
+        self.learning_rate = 9e-4
         self.per_device_train_batch_size : int = 8
-        self.num_train_epochs : int = 4
+        self.num_train_epochs : int = 5
         self.warmup_steps = 3000
         self.lr_scheduler_type="cosine"
         self.predict_with_generate=True
@@ -35,7 +35,7 @@ class T5PG4CarArguments(Seq2SeqTrainingArguments):
 
         # eval
         self.eval_strategy = "steps"
-        self.eval_steps : int = 20
+        self.eval_steps : int = 2000
         self.batch_eval_metrics = ['loss'] 
         self.per_device_eval_batch_size : int = 6
 
