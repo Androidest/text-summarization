@@ -37,7 +37,7 @@ def create_trainer():
         clean_workers=args.data_clean_workers,
         use_B_dialogue=args.data_use_B_dialogue, 
         use_B_question=args.data_use_B_question,
-        take=2000
+        take=500
     )
     eval_dataset.map(data_preprocessor, workers=args.data_preprocess_workers)
 

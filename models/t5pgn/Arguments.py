@@ -3,6 +3,8 @@ from transformers import Seq2SeqTrainingArguments, GenerationConfig
 import datetime
 from .T5PointerGeneratorTokenizer import T5PointerGeneratorTokenizer
 from rouge import Rouge
+from typing import List, Tuple, Union, Dict
+from torch import Tensor
 
 class Arguments(Seq2SeqTrainingArguments):
     def __init__(self, *args, **kwargs):
@@ -36,7 +38,7 @@ class Arguments(Seq2SeqTrainingArguments):
         self.eval_strategy = "steps"
         self.eval_steps : int = 2000
         self.batch_eval_metrics = ['loss'] 
-        self.per_device_eval_batch_size : int = 24
+        self.per_device_eval_batch_size : int = 6
 
         # logging
         self.logging_dir = f"{curdir}/logs/{timestamp}"
@@ -51,44 +53,49 @@ class Arguments(Seq2SeqTrainingArguments):
         self.load_best_model_at_end = True
 
 class RougeMetric:
-    def __init__(self, tokenizer : T5PointerGeneratorTokenizer):
+    def __init__(
+        self, 
+        tokenizer : T5PointerGeneratorTokenizer, 
+        full_result : bool = False
+    ):
         self.rouge = Rouge()
         self.tokenizer = tokenizer
+        self.full_result = full_result
 
     def __call__(
         self, 
-        eval_pred, 
-        compute_result : bool = False, 
-        full_result : bool = False
+        eval_pred : Tuple[Tensor, Tensor],
+        compute_result : bool = False, # used by Seq2SeqTrainer, true on last batch of eval
+        local_vocabs : List[dict] = None
     ) -> dict:
         
         predictions, labels = eval_pred
 
-        local_vocabs = []
-        for (pred, label) in zip(predictions, labels):
-            local_vocab = {}
-            for token_id in pred + label:
-                token_id = token_id.item()
-                if token_id >= self.tokenizer.vocab_size:
-                    num = token_id - self.tokenizer.vocab_size
-                    local_vocab[f'[UNK{num}]'] = token_id
-            local_vocabs.append(local_vocab)
+        if local_vocabs is None:
+            local_vocabs = []
+            for (pred, label) in zip(predictions, labels):
+                local_vocab = {}
+                for token_id in pred + label:
+                    token_id = token_id.item()
+                    if token_id >= self.tokenizer.vocab_size:
+                        num = token_id - self.tokenizer.vocab_size
+                        local_vocab[f'[UNK{num}]'] = token_id
+                local_vocabs.append(local_vocab)
 
         # ids to tokens
-        decoded_preds = self.tokenizer.batch_convert_extended_ids_to_tokens(predictions, local_vocabs=local_vocabs)
-        decoded_labels = self.tokenizer.batch_convert_extended_ids_to_tokens(labels, local_vocabs=local_vocabs)
+        decoded_preds = self.tokenizer.batch_decode_extended_ids(predictions, local_vocabs=local_vocabs, join_space=" ")
+        decoded_labels = self.tokenizer.batch_decode_extended_ids(labels, local_vocabs=local_vocabs, join_space=" ")
 
         # compute rouge
-        hypothesis = [' '.join(pred) for pred in decoded_preds]
-        reference = [' '.join(label) for label in decoded_labels]
-        result = self.rouge.get_scores(hyps=hypothesis, refs=reference, avg=True)
+        avg = not self.full_result
+        result = self.rouge.get_scores(hyps=decoded_preds, refs=decoded_labels, avg=avg)
 
         if compute_result:
-            print('预测结果1：', ''.join(decoded_preds[0]))
-            print('预测结果2：', ''.join(decoded_preds[1]))
+            print('预测结果1：', decoded_preds[0].replace(' ', ''))
+            print('预测结果2：', decoded_preds[1].replace(' ', ''))
             print('')
 
-        if full_result:
+        if self.full_result:
             return result
         
         return {f'{key}.f': value['f'] for key, value in result.items()}

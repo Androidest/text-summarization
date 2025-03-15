@@ -60,6 +60,7 @@ class DataCollatorForT5PointerGenerator:
         decoder_input_ids = labels[:, :-1]
         labels = labels[:, 1:]
         extended_vocab_size = max([data['extended_vocab_size'] for data in features])
+        local_vocabs = [data['local_vocab'] for data in features]
 
         return { 
             'input_ids': input_ids,
@@ -68,6 +69,7 @@ class DataCollatorForT5PointerGenerator:
             'decoder_attention_mask': (decoder_input_ids != self.pad_token_id).float(),
             'labels': labels,
             'extended_vocab_size': extended_vocab_size,
+            'local_vocabs': local_vocabs,
         }
 
 class T5PointerGeneratorModel(T5ForConditionalGeneration):
@@ -92,6 +94,7 @@ class T5PointerGeneratorModel(T5ForConditionalGeneration):
         encoder_outputs: Optional[Tuple[Tuple[torch.Tensor]]] = None,
         extended_vocab_size: Optional[int] = None, # extended vocab build from OOV words for each sequence
         labels: Optional[torch.LongTensor] = None,
+        copy_weight : float = 1, # weight of copy, for inference only: final_p_gen = p_gen * copy_weight
     ) -> Union[Tuple[torch.FloatTensor], T5PointerGeneratorOutputs]:
 
         encoder_seq_len = input_ids.shape[-1]
@@ -134,8 +137,9 @@ class T5PointerGeneratorModel(T5ForConditionalGeneration):
         assert expanded_vocab_dist.shape == (batch_size, decoder_seq_len, expanded_vocab_size)
 
         # Compute final distribution
-        attention_dist = p_gen * attention_dist
-        expanded_vocab_dist = (1 - p_gen) * expanded_vocab_dist
+        final_p_gen = p_gen * copy_weight
+        attention_dist = final_p_gen * attention_dist
+        expanded_vocab_dist = (1 - final_p_gen) * expanded_vocab_dist
         indexes = input_ids.unsqueeze(1).expand(-1, decoder_seq_len, -1)
         assert indexes.shape == (batch_size, decoder_seq_len, encoder_seq_len)
         expanded_vocab_dist.scatter_add_(dim=-1, index=indexes, src=attention_dist)
@@ -174,10 +178,12 @@ class T5PointerGeneratorModel(T5ForConditionalGeneration):
         input_ids: Optional[torch.LongTensor] = None, # with extended vocab ids (no unk id) 
         attention_mask: Optional[torch.FloatTensor] = None, # padding mask
         extended_vocab_size: Optional[int] = None, # extended vocab build from OOV words for each sequence
+        copy_weight: Optional[float] = 1, # weight of copy, for inference only: final_p_gen = p_gen * copy_weight
         **kwargs,
     ) -> Union[GenerateOutput, torch.LongTensor]:
         
-        self.eval()
+        if self.training:
+            self.eval()
         batch_size = input_ids.shape[0]
         gen_len = self.generation_config.max_new_tokens
         decoder_input_ids = torch.full((batch_size, 1), fill_value=self.bos_token_id, dtype=input_ids.dtype, device=input_ids.device)
@@ -197,6 +203,7 @@ class T5PointerGeneratorModel(T5ForConditionalGeneration):
                 encoder_outputs=encoder_outputs, # reuse cached encoder_outputs, prevent recomputation of encoder_outputs for each step
                 extended_vocab_size=extended_vocab_size, # oov token count
                 labels=None, # Don't compute loss
+                copy_weight=copy_weight,
             )
 
             # cache encoder_outputs

@@ -1,5 +1,5 @@
 import torch
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, BertTokenizer, AutoModel
 from typing import Optional, List, Tuple, Union
 
 class T5PointerGeneratorTokenizer:
@@ -36,13 +36,13 @@ class T5PointerGeneratorTokenizer:
                         break
         return tokens
     
-    def decode_extended_ids(self, extended_ids: Union[List[int], torch.Tensor], local_vocab: dict) -> str:
+    def decode_extended_ids(self, extended_ids: Union[List[int], torch.Tensor], local_vocab: dict, join_space = '') -> str:
         tokens = self.convert_extended_ids_to_tokens(extended_ids, local_vocab)
-        return ''.join(tokens)
+        return join_space.join(tokens).replace(" ##", "").strip()
     
-    def batch_decode_extended_ids(self, extended_ids: torch.Tensor, local_vocabs: List[dict]) -> List[str]:
+    def batch_decode_extended_ids(self, extended_ids: torch.Tensor, local_vocabs: List[dict], join_space = '') -> List[str]:
         batch_tokens = self.batch_convert_extended_ids_to_tokens(extended_ids, local_vocabs)
-        return [''.join(tokens) for tokens in batch_tokens]
+        return [join_space.join(tokens).replace(" ##", "").strip() for tokens in batch_tokens]
 
     def encode_extended_ids(
             self,
