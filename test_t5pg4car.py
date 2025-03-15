@@ -47,13 +47,16 @@ def test_summarizer(path):
     summarizer = T5PG4CarSummizer.from_pretrained(path)
     summarizer = summarizer.to("cuda")
 
-    for i in range(10):
+    selected_data = [2076, 3966, 9098, 9107, 3952, 10842, 4422]
+    # for i in range(0,30):
+    for i in selected_data:
         print("-"*100)
-        index = random.randint(0, len(data))
+        # index = random.randint(0, len(data))
+        index = i
         text = data['Dialogue'][index]
         report = data['Report'][index]
-        print('原文：', text, '\n')
-        print('原摘要：', report, '\n')
+        # print(f'[{index}]原文：', text, '\n')
+        print(f'[{index}]原摘要：', report, '\n')
         print('推理摘要：', summarizer.summarize(text), '\n')
 
     score = summarizer.evaluate(batch_size=8, take=16)

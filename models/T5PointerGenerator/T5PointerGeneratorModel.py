@@ -113,7 +113,7 @@ class T5PointerGeneratorModel(T5ForConditionalGeneration):
         )
     
     @torch.no_grad()
-    def generate(
+    def generate__(
         self, 
         inputs: Optional[torch.LongTensor] = None, # with extended vocab ids (no unk id)
         **kwargs,
@@ -134,9 +134,9 @@ class T5PointerGeneratorModel(T5ForConditionalGeneration):
         return outputs
 
     @torch.no_grad()
-    def generate__(
+    def generate(
         self, 
-        input_ids: Optional[torch.LongTensor] = None, # with extended vocab ids (no unk id) 
+        inputs: Optional[torch.LongTensor] = None, # with extended vocab ids (no unk id) 
         attention_mask: Optional[torch.FloatTensor] = None, # padding mask
         extended_vocab_size: Optional[int] = None, # extended vocab build from OOV words for each sequence
         copy_weight: Optional[float] = 1, # weight of copy, for inference only: final_p_gen = p_gen * copy_weight
@@ -145,33 +145,35 @@ class T5PointerGeneratorModel(T5ForConditionalGeneration):
         
         if self.training:
             self.eval()
-        batch_size = input_ids.shape[0]
+        batch_size = inputs.shape[0]
         gen_len = self.generation_config.max_new_tokens
-        decoder_input_ids = torch.full((batch_size, 1), fill_value=self.bos_token_id, dtype=input_ids.dtype, device=input_ids.device)
+        decoder_input_ids = torch.full((batch_size, 1), fill_value=self.bos_token_id, dtype=inputs.dtype, device=inputs.device)
         encoder_outputs = None
-        finish_flags = torch.zeros(batch_size, dtype=torch.bool, device=input_ids.device)
+        finish_flags = torch.zeros(batch_size, dtype=torch.bool, device=inputs.device)
 
         if attention_mask is None:
-            attention_mask = (input_ids!= self.pad_token_id).float()
+            attention_mask = (inputs!= self.pad_token_id).float()
 
         for i in range(1, gen_len):
             decoder_attention_mask = (decoder_input_ids != self.pad_token_id).float()
             outputs = self.forward(
-                input_ids=input_ids, # only used at the first step, when encoder_outputs is None
+                input_ids=inputs, # only used at the first step, when encoder_outputs is None
                 attention_mask=attention_mask, # only used at the first step, when encoder_outputs is None
                 decoder_input_ids=decoder_input_ids, 
                 decoder_attention_mask=decoder_attention_mask,
                 encoder_outputs=encoder_outputs, # reuse cached encoder_outputs, prevent recomputation of encoder_outputs for each step
-                extended_vocab_size=extended_vocab_size, # oov token count
+                extended_vocab_size=extended_vocab_size, # oov token count for PGN
                 labels=None, # Don't compute loss
                 copy_weight=copy_weight,
+                **kwargs
             )
-
             # cache encoder_outputs
             encoder_outputs = outputs.encoder_outputs
 
             # Compute next token id
-            scores = outputs.logits[:, -1:, :] # last token scores(extended vocab distribution)
+            scores = outputs.logits[:, -1:, :] # PGN extented vocab distribution 0~1
+            scores = self.repetition_penalty(scores, inputs.unsqueeze(1))
+
             next_token_ids = scores.argmax(dim=-1) # greedy search
             decoder_input_ids = torch.cat([decoder_input_ids, next_token_ids], dim=-1)
 
@@ -180,5 +182,12 @@ class T5PointerGeneratorModel(T5ForConditionalGeneration):
             finish_flags |= (next_token_ids == self.eos_token_id) | (next_token_ids == self.pad_token_id)
             if finish_flags.all():
                 break
-
+            
         return decoder_input_ids[:, 1:]
+    
+    def repetition_penalty(self, scores: torch.Tensor, inputs: torch.Tensor) -> torch.FloatTensor:
+        penalty = 20
+        score = torch.gather(scores, -1, inputs)
+        score = score / penalty
+        scores_processed = scores.scatter(-1, inputs, score)
+        return scores_processed
