@@ -38,13 +38,18 @@ class T5PG4CarRougeMetric:
             predictions, 
             local_vocabs=local_vocabs, 
             join_space=" ", 
-            remove_special_tokens=False)
+            remove_special_tokens=True)
         
         decoded_labels = self.tokenizer.batch_decode_extended_ids(
             labels, 
             local_vocabs=local_vocabs, 
             join_space=" ",
-            remove_special_tokens=False)
+            remove_special_tokens=True)
+        
+        # empty predictions are not allowed by rouge, replace them with space
+        for i in range(len(decoded_preds)):
+            if decoded_preds[i] == '':
+                decoded_preds[i] = ' '
         
         # compute rouge
         avg = not self.full_result

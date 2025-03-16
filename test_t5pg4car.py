@@ -47,19 +47,23 @@ def test_summarizer(path):
     summarizer = T5PG4CarSummizer.from_pretrained(path)
     summarizer = summarizer.to("cuda")
 
-    selected_data = [2076, 3966, 9098, 9107, 3952, 10842, 4422]
-    # for i in range(0,30):
+    use_rand = True
+    selected_data = [10134, 2076, 3966, 9098, 9107, 3952, 10842, 4422]
+    if use_rand:
+        selected_data = [random.randint(0, len(data)) for _ in range(30)]
+
     for i in selected_data:
         print("-"*100)
-        # index = random.randint(0, len(data))
-        index = i
-        text = data['Dialogue'][index]
-        report = data['Report'][index]
-        # print(f'[{index}]原文：', text, '\n')
-        print(f'[{index}]原摘要：', report, '\n')
+        text = data['Dialogue'][i]
+        report = data['Report'][i]
+        print(f'[{i}]原文：', text, '\n')
+        print(f'[{i}]原摘要：', report, '\n')
         print('推理摘要：', summarizer.summarize(text), '\n')
 
-    score = summarizer.evaluate(batch_size=8, take=16)
+def test_summizer_evaluate(path):
+    summarizer = T5PG4CarSummizer.from_pretrained(path)
+    summarizer = summarizer.to("cuda")
+    score = summarizer.evaluate(batch_size=20, take=5000)
 
     print('Rouge Scores:')
     for key,val in score.items():
@@ -69,5 +73,6 @@ if __name__ == '__main__':
     # test_rouge()
     # test_dataset()
     
-    model_path = "summarizer/T5PG4Car/checkpoints/best2"
-    test_summarizer(model_path)
+    model_path = "summarizer/T5PG4Car/checkpoints/best1"
+    # test_summarizer(model_path)
+    test_summizer_evaluate(model_path)

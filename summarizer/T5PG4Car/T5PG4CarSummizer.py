@@ -37,30 +37,6 @@ class T5PG4CarSummizer:
         self.model.to(device)
         return self
 
-    def summarize(self, input_text : str, copy_weight : int = 1) -> str:
-        # clean text
-        CarDataCleaner.clean_dialogue(input_text, self.args.data_use_B_dialogue)
-
-        # encode text
-        input_ids, local_vocab = self.tokenizer.encode_extended_ids(
-            input_text,
-            max_length=self.generation_config.max_length,
-            return_tensors=True,
-            add_special_tokens=False
-        )
-
-        # generate summary
-        input_ids = input_ids.unsqueeze(0).to(self.device) # to batch (1, seq_len) 
-        output_ids = self.model.generate(
-            inputs = input_ids, 
-            extended_vocab_size=len(local_vocab), 
-            copy_weight = copy_weight # weight of copy, for inference only: final_p_gen = p_gen * copy_weight
-        )
-        
-        # decode summary
-        summirized_text = self.tokenizer.decode_extended_ids(output_ids[0], local_vocab)
-        return summirized_text
-    
     def train(self, args : Optional[T5PG4CarArguments] = None):
         if args:
             self.args = args
@@ -74,6 +50,11 @@ class T5PG4CarSummizer:
         model = T5PointerGeneratorModel.from_pretrained(self.args.pretrained_path)
         tokenizer = T5PointerGeneratorTokenizer.from_pretrained(self.args.pretrained_path)
         metrics = T5PG4CarRougeMetric(tokenizer)
+
+        # sync generation_config and tokenizer
+        self.args.generation_config.bos_token_id = tokenizer.bos_token_id
+        self.args.generation_config.eos_token_id = tokenizer.eos_token_id
+        self.args.generation_config.pad_token_id = tokenizer.pad_token_id
 
         # DataPreprocessor: Process tokenization, generate input_ids, etc
         data_preprocessor = T5PG4CarDataPreprocessor(tokenizer, self.args.generation_config) 
@@ -128,7 +109,7 @@ class T5PG4CarSummizer:
 
         rouge_metrics = T5PG4CarRougeMetric(self.tokenizer, full_result=True)
         data_preprocessor = T5PG4CarDataPreprocessor(self.tokenizer, self.generation_config)
-        data_collator = T5PG4CarDataCollator(self.tokenizer)
+        data_collator = T5PG4CarDataCollator(self.tokenizer, return_local_vocab=True)
         
         # prepare eval dataset
         eval_dataset = CarSeq2SeqDataset(
@@ -160,7 +141,9 @@ class T5PG4CarSummizer:
                 predictions = self.model.generate(
                     inputs=input_ids,
                     attention_mask=attention_mask,
-                    extended_vocab_size=extended_vocab_size)
+                    extended_vocab_size=extended_vocab_size,
+                    compute_last_token=True,
+                )
                 
                 scores = rouge_metrics((predictions, labels), local_vocabs=local_vocabs)
                 all_scores.extend(scores)
@@ -177,3 +160,28 @@ class T5PG4CarSummizer:
 
         return score
         
+    def summarize(self, input_text : str, copy_weight : int = 1) -> str:
+        # clean text
+        input_text = CarDataCleaner.clean_dialogue(input_text, self.args.data_use_B_dialogue)
+
+        # encode text
+        input_ids, local_vocab = self.tokenizer.encode_extended_ids(
+            input_text,
+            max_length=self.generation_config.max_length,
+            return_tensors=True,
+            add_special_tokens=False,
+        )
+
+        # generate summary
+        input_ids = input_ids.unsqueeze(0).to(self.device) # to batch (1, seq_len) 
+        output_ids = self.model.generate(
+            inputs = input_ids, 
+            extended_vocab_size=len(local_vocab), 
+            copy_weight = copy_weight, # weight of copy, for inference only: final_p_gen = p_gen * copy_weight
+            compute_last_token=True,
+        )
+        
+        # decode summary
+        summirized_text = self.tokenizer.decode_extended_ids(output_ids[0], local_vocab)
+        return summirized_text
+    
