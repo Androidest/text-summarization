@@ -1,23 +1,22 @@
 from .BertPointerGeneratorOutputs import *
 from .BertPointerGeneratorTokenizer import *
-from transformers import BertModel, BertConfig
+from .BertPointerGeneratorConfig import *
+from transformers import BertModel
 from transformers.generation.utils import GenerateOutput
 from typing import Optional, Tuple, Union
 import torch
 
 class BertPointerGeneratorModel(BertModel):
-    def __init__(self, config: BertConfig):
+    def __init__(self, config: BertPointerGeneratorConfig):
         super().__init__(config, add_pooling_layer=False)
+        self.config : BertPointerGeneratorConfig = config
         self.lm_head = torch.nn.Linear(config.d_model, config.vocab_size, bias=False)
         self.p_gen_linear = torch.nn.Linear(config.d_model, 1)
         self.sigmoid = torch.nn.Sigmoid()
-        
-        tokenizer = BertPointerGeneratorTokenizer.from_pretrained(config._name_or_path)
-        self.vocab_size = tokenizer.vocab_size
-        self.unk_token_id = tokenizer.unk_token_id
-        self.cls_token_id = tokenizer.cls_token_id
-        self.eos_token_id = tokenizer.eos_token_id
-        self.pad_token_id = tokenizer.pad_token_id
+        self.vocab_size = config.vocab_size
+        # tokenizer = BertPointerGeneratorTokenizer.from_pretrained(config._name_or_path)
+        # self.unk_token_id = tokenizer.unk_token_id
+        # self.pad_token_id = tokenizer.pad_token_id
 
     def forward(
         self, 
@@ -45,11 +44,11 @@ class BertPointerGeneratorModel(BertModel):
             input_ids = self._input_ids
 
         if attention_mask is None:
-            attention_mask = (input_ids != self.pad_token_id).float()
+            attention_mask = (input_ids != self.config.pad_token_id).float()
             
         batch_size, seq_len = input_ids.shape
         # Replace extended vocab ids with unk id
-        parent_input_ids = input_ids.masked_fill(input_ids >= self.vocab_size, self.unk_token_id)
+        parent_input_ids = input_ids.masked_fill(input_ids >= self.vocab_size, self.config.unk_token_id)
 
         outputs = super().forward(
             input_ids=parent_input_ids, 
