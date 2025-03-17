@@ -23,7 +23,10 @@ class BertPGN4CarDataPreprocessor:
             add_special_tokens=True,
         )
 
-        labels = labels + [self.tokenizer.pad_token_id] * (len(input_ids) - len(labels))
+        if len(input_ids) > len(labels):
+            labels = labels + [self.tokenizer.pad_token_id] * (len(input_ids) - len(labels))
+        elif len(input_ids) < len(labels):
+            labels = labels[:len(input_ids)]
 
         return {
             'input_ids': input_ids, # with extended vocab ids (no unk id)
