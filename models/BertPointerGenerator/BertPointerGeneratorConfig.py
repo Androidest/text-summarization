@@ -1,6 +1,7 @@
 from transformers import BertConfig
 
 class BertPointerGeneratorConfig(BertConfig):
+    model_type = "bert"
     def __init__(
             self, 
             unk_token_id : int = None,

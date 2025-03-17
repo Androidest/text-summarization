@@ -1,17 +1,17 @@
 from .BertPointerGeneratorOutputs import *
 from .BertPointerGeneratorTokenizer import *
 from .BertPointerGeneratorConfig import *
-from transformers import BertModel
+from transformers import BertModel, BertConfig
 from transformers.generation.utils import GenerateOutput
 from typing import Optional, Tuple, Union
 import torch
 
 class BertPointerGeneratorModel(BertModel):
-    def __init__(self, config: BertPointerGeneratorConfig):
+    def __init__(self, config: BertPointerGeneratorConfig = None):
         super().__init__(config, add_pooling_layer=False)
-        self.config : BertPointerGeneratorConfig = config
-        self.lm_head = torch.nn.Linear(config.d_model, config.vocab_size, bias=False)
-        self.p_gen_linear = torch.nn.Linear(config.d_model, 1)
+        self.config = config
+        self.lm_head = torch.nn.Linear(config.hidden_size, config.vocab_size, bias=False)
+        self.p_gen_linear = torch.nn.Linear(config.hidden_size, 1)
         self.sigmoid = torch.nn.Sigmoid()
         self.vocab_size = config.vocab_size
         # tokenizer = BertPointerGeneratorTokenizer.from_pretrained(config._name_or_path)
@@ -26,7 +26,6 @@ class BertPointerGeneratorModel(BertModel):
         position_ids: Optional[torch.Tensor] = None,
         head_mask: Optional[torch.Tensor] = None,
         inputs_embeds: Optional[torch.Tensor] = None,
-        encoder_outputs: Optional[Tuple[Tuple[torch.Tensor]]] = None,
         past_key_values: Optional[Tuple[Tuple[torch.Tensor]]] = None,
         encoder_hidden_states: Optional[torch.Tensor] = None,
         encoder_attention_mask: Optional[torch.Tensor] = None,
@@ -36,7 +35,6 @@ class BertPointerGeneratorModel(BertModel):
         output_attentions : Optional[bool] = None,  # Require cross-attention weights for p_gen computation
         output_hidden_states : Optional[bool] = None,
         return_dict : Optional[bool] = None,
-        cache_position: Optional[torch.LongTensor] = None,
         **kwargs,
     ) -> Union[Tuple[torch.FloatTensor], BertPointerGeneratorOutputs]:
 
@@ -57,7 +55,6 @@ class BertPointerGeneratorModel(BertModel):
             position_ids=position_ids,
             head_mask=head_mask,
             inputs_embeds=inputs_embeds,
-            encoder_outputs=encoder_outputs,
             past_key_values=past_key_values,
             encoder_hidden_states=encoder_hidden_states,
             encoder_attention_mask=encoder_attention_mask,
@@ -65,7 +62,6 @@ class BertPointerGeneratorModel(BertModel):
             output_attentions=True,  # Require cross-attention weights for p_gen computation
             output_hidden_states=True,
             return_dict=True,
-            cache_position=cache_position,
         )
 
         # Compute attention distribution
@@ -73,20 +69,23 @@ class BertPointerGeneratorModel(BertModel):
         attention_dist = last_self_attention.mean(dim=1)  # (batch_size, seq_len/summarized text, encoder_seq_len/original text)
 
         # Compute p_gen
-        last_hidden_state = outputs.last_hidden_state # (batch_size, seq_len, d_model)
+        last_hidden_state = outputs.last_hidden_state # (batch_size, seq_len, hidden_size)
         p_gen = self.sigmoid(self.p_gen_linear(last_hidden_state))  # (batch_size, seq_len, 1)
 
         # Compute extended vocab distribution
         logits = self.lm_head(last_hidden_state) # (batch_size, seq_len, vocab_size)
         vocab_dist = logits.softmax(dim=-1)
-        zeros = torch.zeros(batch_size, seq_len, extended_vocab_size, dtype=logits.dtype, device=logits.device)
-        expanded_vocab_dist = torch.cat([vocab_dist, zeros], dim=-1) 
+        if extended_vocab_size > 0:
+            zeros = torch.zeros(batch_size, seq_len, extended_vocab_size, dtype=logits.dtype, device=logits.device)
+            final_dist = torch.cat([vocab_dist, zeros], dim=-1) 
+        else:
+            final_dist = vocab_dist
 
         # Compute final distribution
         attention_dist = p_gen * attention_dist
-        expanded_vocab_dist = (1 - p_gen) * expanded_vocab_dist
+        final_dist = (1 - p_gen) * final_dist
         indexes = input_ids.unsqueeze(1).expand(-1, seq_len, -1)
-        expanded_vocab_dist.scatter_add_(dim=-1, index=indexes, src=attention_dist)
+        final_dist.scatter_add_(dim=-1, index=indexes, src=attention_dist)
 
         # Compute the loss if 'labels' is provided. 
         # this mechanism is required by transformers.Trainer/Seq2SeqTrainer
@@ -98,14 +97,14 @@ class BertPointerGeneratorModel(BertModel):
 
             # Compute the Negative Log-Likelihood Loss
             selected_indexes = labels.unsqueeze(-1)
-            selected_probs = expanded_vocab_dist.gather(dim=-1, index=selected_indexes).squeeze(-1)
+            selected_probs = final_dist.gather(dim=-1, index=selected_indexes).squeeze(-1)
             loss = -torch.log(selected_probs + 1e-10) * attention_mask
             loss = loss.sum() / attention_mask.sum() # average loss over non-padding tokens
 
         # return dict
         return BertPointerGeneratorOutputs(
             loss=loss, # loss is required by transformers.Trainer/Seq2SeqTrainer
-            logits=expanded_vocab_dist,
+            logits=final_dist,
             last_hidden_state=outputs.last_hidden_state,
             hidden_states=outputs.hidden_states,
             past_key_values=outputs.past_key_values,
@@ -125,7 +124,7 @@ class BertPointerGeneratorModel(BertModel):
         if self.training:
             self.eval()
 
-        outputs = self.forward(input_ids=inputs)
+        outputs = self.forward(input_ids=inputs, **kwargs)
         scores = outputs.logits
         
         # Greedy search

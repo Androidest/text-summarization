@@ -1,6 +1,6 @@
 from utils import *
 import os
-from summarizer.BertPGN4Car import BertPointerGeneratorModel, BertPGN4CarArguments
+from summarizer.BertPGN4Car import BertPGN4CarSummizer, BertPGN4CarArguments
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
@@ -10,5 +10,5 @@ if __name__ == '__main__':
     set_proxy(args)
     
     args = BertPGN4CarArguments()
-    summarizer = BertPointerGeneratorModel()
+    summarizer = BertPGN4CarSummizer()
     summarizer.train(args)

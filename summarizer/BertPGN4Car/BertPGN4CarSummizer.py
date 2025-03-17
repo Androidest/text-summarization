@@ -50,6 +50,7 @@ class BertPGN4CarSummizer:
         metrics = BertPGN4CarRougeMetric(tokenizer)
 
         # sync generation_config and tokenizer
+        config = model.config
         config.cls_token_id = tokenizer.cls_token_id
         config.eos_token_id = tokenizer.eos_token_id
         config.unk_token_id = tokenizer.unk_token_id

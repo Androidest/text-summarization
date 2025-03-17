@@ -4,24 +4,26 @@ import torch
 class BertPGN4CarDataPreprocessor:
     def __init__(self, tokenizer: BertPointerGeneratorTokenizer, config : BertPointerGeneratorConfig):
         self.tokenizer = tokenizer
-        self.max_seq_len = config.max_length
+        self.max_len = config.max_len
 
     def __call__(self, data : dict):
 
         input_ids, local_vocab = self.tokenizer.encode_extended_ids(
             data['x'],
-            max_length=self.max_seq_len,
+            max_length=self.max_len,
             return_tensors=False,
             add_special_tokens=True,
         )
 
         labels = self.tokenizer.encode_with_extended_vocab(
             data['y'],
-            max_length=self.max_decoder_seq_len,
+            max_length=self.max_len,
             local_vocab=local_vocab,
             return_tensors=False,
             add_special_tokens=True,
         )
+
+        labels = labels + [self.tokenizer.pad_token_id] * (len(input_ids) - len(labels))
 
         return {
             'input_ids': input_ids, # with extended vocab ids (no unk id)
