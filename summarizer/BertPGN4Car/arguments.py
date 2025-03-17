@@ -23,7 +23,7 @@ class BertPGN4CarArguments(Seq2SeqTrainingArguments):
         # train
         data_size = 81718
         self.weight_decay = 0.01
-        self.learning_rate = 1e-3
+        self.learning_rate = 1e-4
         self.per_device_train_batch_size : int = 5
         self.num_train_epochs : int = 5
         self.warmup_steps = data_size * self.num_train_epochs // self.per_device_train_batch_size // 10
