@@ -172,3 +172,63 @@ class T5PointerGeneratorModel(T5ForConditionalGeneration):
         inputs = self._input_ids.masked_fill(self._input_ids >= self.vocab_size, self.unk_token_id)
         outputs = super().generate(inputs, copy_weight=copy_weight, compute_last_token=compute_last_token, **kwargs)
         return outputs
+    
+    @torch.no_grad()
+    def generate__(
+        self, 
+        inputs: Optional[torch.LongTensor] = None, # inference: with extended vocab ids (no unk id), 
+        input_ids: Optional[torch.LongTensor] = None, # training: with extended vocab ids (no unk id)
+        copy_weight: Optional[float] = 1, # weight of copy, for inference only: final_p_gen = p_gen * copy_weight
+        compute_last_token: bool = False,
+        **kwargs,
+    ) -> Union[GenerateOutput, torch.LongTensor]:
+        
+        inputs = inputs if inputs is not None else input_ids
+        if self.training:
+            self.eval()
+
+        batch_size = inputs.shape[0]
+        gen_len = self.generation_config.max_new_tokens
+        decoder_input_ids = torch.full((batch_size, 1), fill_value=self.cls_token_id, dtype=inputs.dtype, device=inputs.device)
+        decoder_attention_mask = torch.ones_like(decoder_input_ids)
+        finish_flags = torch.zeros_like(decoder_input_ids)
+        encoder_outputs = None
+
+        for param in ['input_ids', 'encoder_outputs', 'labels']:
+            kwargs.pop(param, None)
+
+        for i in range(1, gen_len):
+            outputs = self.forward(
+                input_ids=inputs, # only used at the first step, when encoder_outputs is None
+                decoder_input_ids=decoder_input_ids, 
+                decoder_attention_mask=decoder_attention_mask,
+                encoder_outputs=encoder_outputs, # reuse cached encoder_outputs, prevent recomputation of encoder_outputs for each step
+                labels=None, # Don't compute loss
+                copy_weight=copy_weight,
+                compute_last_token=compute_last_token,
+                **kwargs
+            )
+            # cache encoder_outputs
+            encoder_outputs = outputs.encoder_outputs
+
+            # Compute next token id
+            scores = outputs.logits[:, -1:, :] # PGN extented vocab distribution 0~1
+            scores = self.repetition_penalty(scores, inputs.unsqueeze(1))
+
+            next_token_ids = scores.argmax(dim=-1) # greedy search
+            finish_flags |= (next_token_ids == self.eos_token_id) | (next_token_ids == self.pad_token_id)
+            decoder_input_ids = torch.cat([decoder_input_ids, next_token_ids], dim=-1)
+            decoder_attention_mask = torch.cat([decoder_attention_mask, (finish_flags != True).float()], dim=-1)
+
+            # stops generating when all sequences have eos token
+            if finish_flags.all():
+                break
+            
+        return decoder_input_ids[:, 1:]
+    
+    def repetition_penalty(self, scores: torch.Tensor, inputs: torch.Tensor) -> torch.FloatTensor:
+        penalty = 1
+        score = torch.gather(scores, -1, inputs)
+        score = score / penalty
+        scores_processed = scores.scatter(-1, inputs, score)
+        return scores_processed
