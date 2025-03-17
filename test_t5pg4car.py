@@ -33,14 +33,17 @@ def test_dataset():
         clean_workers=5,
         use_B_dialogue=False, 
         use_B_question=True,
-        take=10
+        take=-1
     )
     dataset.map(T5PG4CarDataPreprocessor(tokenizer, args.generation_config))
     
+    count = 0
     for data in dataset:
-        if data['extended_vocab_size'] > 0:
+        if data['extended_vocab_size'] > 5:
             print(data)
-            break
+            count += 1
+            if count > 5:
+                break
 
 def test_summarizer(path):
     data = pd.read_csv("custom_datasets/CarSeq2SeqDataset/data/dev.csv")
@@ -74,5 +77,5 @@ if __name__ == '__main__':
     # test_dataset()
     
     model_path = "summarizer/T5PG4Car/checkpoints/best1"
-    # test_summarizer(model_path)
+    test_summarizer(model_path)
     test_summizer_evaluate(model_path)

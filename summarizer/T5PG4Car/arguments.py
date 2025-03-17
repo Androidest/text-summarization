@@ -25,7 +25,7 @@ class T5PG4CarArguments(Seq2SeqTrainingArguments):
         self.weight_decay = 0.01
         self.learning_rate = 1e-3
         self.per_device_train_batch_size : int = 10
-        self.num_train_epochs : int = 2
+        self.num_train_epochs : int = 5
         self.warmup_steps = data_size * self.num_train_epochs // self.per_device_train_batch_size // 10
         self.lr_scheduler_type="cosine"
         self.predict_with_generate=True
@@ -36,7 +36,7 @@ class T5PG4CarArguments(Seq2SeqTrainingArguments):
 
         # eval
         self.eval_strategy = "steps"
-        self.eval_steps : int = 1000
+        self.eval_steps : int = 2000
         self.batch_eval_metrics = ["loss"] 
         self.per_device_eval_batch_size : int = 21
 
