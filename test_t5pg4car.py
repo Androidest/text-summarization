@@ -59,7 +59,7 @@ def test_summarizer(path):
         print("-"*100)
         text = data['Dialogue'][i]
         report = data['Report'][i]
-        print(f'[{i}]原文：', text, '\n')
+        # print(f'[{i}]原文：', text, '\n')
         print(f'[{i}]原摘要：', report, '\n')
         print('推理摘要：', summarizer.summarize(text), '\n')
 
@@ -76,6 +76,6 @@ if __name__ == '__main__':
     # test_rouge()
     # test_dataset()
     
-    model_path = "summarizer/T5PG4Car/checkpoints/best1"
+    model_path = "summarizer/T5PG4Car/checkpoints/best4"
     test_summarizer(model_path)
     test_summizer_evaluate(model_path)

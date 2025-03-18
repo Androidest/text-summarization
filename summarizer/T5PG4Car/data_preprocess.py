@@ -18,7 +18,7 @@ class T5PG4CarDataPreprocessor:
         )
 
         labels = self.tokenizer.encode_with_extended_vocab(
-            '总结：' + data['y'],
+            data['y'],
             max_length=self.max_decoder_seq_len,
             local_vocab=local_vocab,
             return_tensors=False,

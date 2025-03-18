@@ -21,9 +21,3 @@ if __name__ == '__main__':
             print("正在关机...")
         except Exception as e:
             print(f"关机失败: {e}")
-    elif platform.system() == "Windows":
-        try:
-            os.system("shutdown /s /t 0")
-            print("正在关机...")
-        except Exception as e:
-            print(f"关机失败: {e}")
