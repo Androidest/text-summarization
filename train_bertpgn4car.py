@@ -7,12 +7,12 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 if __name__ == '__main__':
     # parse args
-    # args = arg_parser.parse_args()
-    # set_proxy(args)
+    args = arg_parser.parse_args()
+    set_proxy(args)
     
-    # args = BertPGN4CarArguments()
-    # summarizer = BertPGN4CarSummizer()
-    # summarizer.train(args)
+    args = BertPGN4CarArguments()
+    summarizer = BertPGN4CarSummizer()
+    summarizer.train(args)
 
     # 执行关机命令
     if platform.system() == "Linux":
