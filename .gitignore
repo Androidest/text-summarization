@@ -175,3 +175,4 @@ cython_debug/
 /custom_datasets/**/*.temp.*
 /summarizer/**/[lL]og*
 /summarizer/**/[Cc]heckpoint*
+copy.bat
