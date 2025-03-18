@@ -18,7 +18,7 @@ class BertPGN4CarArguments(Seq2SeqTrainingArguments):
         self.data_clean_workers=2
         self.data_preprocess_workers=3
         self.data_train_take = -1
-        self.data_eval_take = 2000
+        self.data_eval_take = 800
 
         # train
         data_size = 81718
@@ -56,18 +56,18 @@ class BertPGN4CarArguments_A100(BertPGN4CarArguments):
         self.data_clean_workers=10
         self.data_preprocess_workers=10
         self.data_train_take = -1
-        self.data_eval_take = 2000
+        self.data_eval_take = 800
 
         # train
         data_size = 81718
-        self.learning_rate = 7e-4
-        self.per_device_train_batch_size : int = 32
+        self.learning_rate = 4e-4
+        self.per_device_train_batch_size : int = 16
         self.num_train_epochs : int = 5
         self.warmup_steps = data_size * self.num_train_epochs // self.per_device_train_batch_size // 10
 
         # eval
         self.eval_steps : int = 400
-        self.per_device_eval_batch_size : int = 40
+        self.per_device_eval_batch_size : int = 50
 
         # logging
-        self.logging_steps = 10
+        self.logging_steps = 20

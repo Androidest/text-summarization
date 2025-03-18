@@ -52,3 +52,23 @@ class T5PG4CarArguments(Seq2SeqTrainingArguments):
         self.save_total_limit : int = 1
         self.load_best_model_at_end = True
 
+class T5PG4CarArguments_A100(T5PG4CarArguments):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.data_preprocess_workers=10
+        self.data_eval_take = 800
+
+        # train
+        data_size = 81718
+        self.learning_rate = 1e-3
+        self.per_device_train_batch_size : int = 32
+        self.num_train_epochs : int = 5
+        self.warmup_steps = data_size * self.num_train_epochs // self.per_device_train_batch_size // 10
+
+        # eval
+        self.eval_steps : int = 500
+        self.per_device_eval_batch_size : int = 40
+
+        # logging
+        self.logging_steps = 20

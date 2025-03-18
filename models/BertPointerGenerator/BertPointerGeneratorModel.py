@@ -14,9 +14,6 @@ class BertPointerGeneratorModel(BertModel):
         self.p_gen_linear = torch.nn.Linear(config.hidden_size, 1)
         self.sigmoid = torch.nn.Sigmoid()
         self.vocab_size = config.vocab_size
-        # tokenizer = BertPointerGeneratorTokenizer.from_pretrained(config._name_or_path)
-        # self.unk_token_id = tokenizer.unk_token_id
-        # self.pad_token_id = tokenizer.pad_token_id
 
     def forward(
         self, 
